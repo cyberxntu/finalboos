@@ -68,12 +68,16 @@ class SASTScanner(ast.NodeVisitor):
 def load_ignore_list(file_path=".scannerignore"):
     ignore_list = set()
     if os.path.exists(file_path):
-        with open(file_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    ignore_list.add(line)
+        if os.path.isfile(file_path):
+            with open(file_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        ignore_list.add(line)
+        else:
+            print(f"[!] Warning: {file_path} exists but is not a file. Ignoring ignore list.")
     return ignore_list
+
 
 def should_ignore(filepath, ignore_list):
     return any(ignored in filepath for ignored in ignore_list)
