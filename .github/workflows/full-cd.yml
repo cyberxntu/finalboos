@@ -13,7 +13,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Log in to DockerHub
-      run: echo "${{ secrets.pass_secret }}" | docker login -u "x7m7s7" --password-stdin
+      run: echo "${{ secrets.PASS_SECRET }}" | docker login -u "x7m7s7" --password-stdin
 
     - name: Build Docker Image
       run: docker build -t x7m7s7/devops:latest .
