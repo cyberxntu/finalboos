@@ -1,4 +1,5 @@
-from flask import Flask, request, redirect, render_template, session, flash, Markup
+from flask import Flask, request, redirect, render_template, session, flash
+from markupsafe import Markup
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_wtf.csrf import CSRFProtect
 import sqlite3
