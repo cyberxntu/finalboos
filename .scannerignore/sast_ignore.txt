@@ -1,9 +1,9 @@
-app.py:57
-app.py:74
-app.py:94
-app.py:135
-app.py:148
-app.py:150
-app.py:65
-app.py:131
-app.py:54
+app.py:55 [Potential XSS] - Rendering variable 'comments' without sanitization
+app.py:58 [Missing CSRF Protection] - Function 'register' handles POST without CSRF
+app.py:66 [Plaintext Password Storage] - Possible storage of plaintext password in DB
+app.py:75 [Missing CSRF Protection] - Function 'login' handles POST without CSRF
+app.py:95 [Missing CSRF Protection] - Function 'dashboard' handles POST without CSRF
+app.py:132 [Potential XSS] - Rendering variable 'balance' without sanitization
+app.py:136 [Missing CSRF Protection] - Function 'comment' handles POST without CSRF
+app.py:149 [Missing CSRF Protection] - Function 'admin' handles POST without CSRF
+app.py:151 [Broken Access Control] - Admin route lacks strict session verification
