@@ -66,29 +66,28 @@ def load_ignore_list(path=".scannerignore"):
     ignore_list = set()
     if os.path.exists(path):
         if os.path.isfile(path):
-            with open(path) as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        ignore_list.add(line)
+            try:
+                with open(path, encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            ignore_list.add(line)
+            except Exception as e:
+                print(f"[!] Failed to read file: {path} -- {e}")
         elif os.path.isdir(path):
             files = glob.glob(os.path.join(path, "*"))
             for file_path in files:
                 if os.path.isfile(file_path):
-                    with open(file_path) as f:
-                        for line in f:
-                            line = line.strip()
-                            if line and not line.startswith("#"):
-                                ignore_list.add(line)
+                    try:
+                        with open(file_path, encoding="utf-8", errors="ignore") as f:
+                            for line in f:
+                                line = line.strip()
+                                if line and not line.startswith("#"):
+                                    ignore_list.add(line)
+                    except Exception as e:
+                        print(f"[!] Skipping file due to read error: {file_path} -- {e}")
     return ignore_list
 
-def should_ignore(issue, ignore_list):
-    # issue is dict with keys: file, line, type, desc
-    # check if any ignore rule matches the issue description or type or file:line
-    for rule in ignore_list:
-        if rule in issue['desc'] or rule in issue['type'] or rule in f"{issue['file']}:{issue['line']}":
-            return True
-    return False
 
 # ========== SCAN LOGIC ==========
 def analyze_file(filepath, ignore_list):
