@@ -1,0 +1,2 @@
+app.py:59:Plaintext Password Storage
+app.py:125:Potential XSS
