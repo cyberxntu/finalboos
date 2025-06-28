@@ -1,34 +1,31 @@
-FROM python:3.11-slim-bookworm AS builder
+FROM python:3.11-slim-bookworm@sha256:1d849ea9a5d...
+
+RUN useradd -m appuser && \
+    mkdir -p /app && \
+    chown appuser:appuser /app
 
 WORKDIR /app
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    gcc \
-    python3-dev \
-    libpq-dev && \
+    apt-get upgrade -y --no-install-recommends && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python -m pip install --upgrade pip==23.3.2
+COPY --chown=appuser:appuser requirements-secure.txt .
 
-COPY requirements.txt .
+RUN pip install --no-cache-dir \
+    --require-hashes \
+    -r requirements-secure.txt && \
+    pip check
 
-RUN pip install --user \
-    --no-cache-dir \
-    --use-deprecated=legacy-resolver \
-    -r requirements.txt
+COPY --chown=appuser:appuser . .
 
-FROM python:3.11-slim-bookworm
+USER appuser
 
-WORKDIR /app
-
-COPY --from=builder /root/.local /root/.local
-COPY . .
-
-ENV PATH="/root/.local/bin:${PATH}"
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8080
+ENV PYTHONUNBUFFERED=1 \
+    PORT=8080 \
+    GUNICORN_CMD_ARGS="--worker-tmp-dir /dev/shm --workers 4 --threads 2 --timeout 120"
 
 EXPOSE 8080
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--access-logfile", "-", "app:app"]
