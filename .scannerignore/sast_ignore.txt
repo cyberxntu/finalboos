@@ -1,11 +1,9 @@
-app.py:59:Plaintext Password Storage
-app.py:125:Potential XSS
-app.py:71:Missing CSRF Protection
-app.py:85:Potential XSS
-app.py:88:Missing CSRF Protection
-app.py:104:Potential XSS
-app.py:107:Missing CSRF Protection
-app.py:138:Potential XSS
-app.py:141:Missing CSRF Protection
-app.py:153:Missing CSRF Protection
-app.py:160:Potential XSS
+app.py:57
+app.py:74
+app.py:94
+app.py:135
+app.py:148
+app.py:150
+app.py:65
+app.py:131
+app.py:54
