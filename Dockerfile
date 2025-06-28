@@ -4,10 +4,10 @@ FROM python:3.11-slim-bookworm
 # Set working directory
 WORKDIR /app
 
-# 1. Install dependencies first (for better layer caching)
+# Install system dependencies first
 COPY requirements.txt .
 
-# Install system packages and clean up
+# Install Python dependencies and clean up
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc python3-dev && \
     pip install --no-cache-dir -r requirements.txt && \
@@ -15,23 +15,24 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
-# 2. Copy application files
+# Copy application code
 COPY . .
 
-# 3. Set environment variables
+# Environment variables
+# Note: PORT must be 8080 for Fly.io compatibility
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
-ENV PORT=8080  # Changed to 8080 for Fly.io compatibility
+ENV PORT=8080
 
-# 4. Expose the correct port (must match PORT)
+# Expose the application port
 EXPOSE 8080
 
-# 5. Run Gunicorn with secure settings
+# Run Gunicorn with production settings
 CMD ["gunicorn", \
-     "--bind", "0.0.0.0:8080", \
-     "--workers", "4", \
-     "--threads", "2", \
-     "--timeout", "120", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-", \
-     "app:app"]
+    "--bind", "0.0.0.0:8080", \
+    "--workers", "4", \
+    "--threads", "2", \
+    "--timeout", "120", \
+    "--access-logfile", "-", \
+    "--error-logfile", "-", \
+    "app:app"]
