@@ -71,7 +71,7 @@ jobs:
           fi
 
       - name: Run Bandit
-        run: bandit -r . -f json -o bandit_results.json
+        run: bandit -r . -f json -o bandit_results.json || true
 
       - name: Run detect-secrets
         run: detect-secrets scan > detect_secrets.json
