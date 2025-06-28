@@ -9,8 +9,14 @@ RUN apt-get update && \
     libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
+RUN python -m pip install --upgrade pip==23.3.2
+
 COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+
+RUN pip install --user \
+    --no-cache-dir \
+    --use-deprecated=legacy-resolver \
+    -r requirements.txt
 
 FROM python:3.11-slim-bookworm
 
@@ -19,10 +25,10 @@ WORKDIR /app
 COPY --from=builder /root/.local /root/.local
 COPY . .
 
-ENV PATH=/root/.local/bin:$PATH
+ENV PATH="/root/.local/bin:${PATH}"
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 
 EXPOSE 8080
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "app:app"]
