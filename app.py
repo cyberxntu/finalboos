@@ -1,9 +1,6 @@
 from flask import Flask, request, redirect, render_template, session, flash
-from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, IntegerField
-from wtforms.validators import DataRequired, Length
+from flask_wtf.csrf import CSRFProtect
 import sqlite3
 import os
 
@@ -13,7 +10,6 @@ csrf = CSRFProtect(app)
 
 DATABASE = 'db.sqlite'
 
-# ======== DB SETUP ========
 def get_db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
@@ -43,55 +39,43 @@ def init_db():
 
 init_db()
 
-# ======== FORMS ========
-class RegisterForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired(), Length(min=3)])
-    password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
-
-class LoginForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
-    password = PasswordField('Password', validators=[DataRequired()])
-
-class TransferForm(FlaskForm):
-    to = StringField('To', validators=[DataRequired()])
-    amount = IntegerField('Amount', validators=[DataRequired()])
-
-class CommentForm(FlaskForm):
-    comment = StringField('Comment', validators=[DataRequired()])
-
-
-# ======== ROUTES ========
 @app.route('/')
 def index():
     conn = get_db()
-    comments = conn.execute("SELECT * FROM comments").fetchall()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM comments")
+    comments = cur.fetchall()
+    # في القالب تأكد من تعقيم المتغيرات
     return render_template('index.html', comments=comments)
 
 @app.route('/register', methods=['GET', 'POST'])
+@csrf.exempt  # افصل CSRF هنا اذا تستخدم flask-wtf بشكل صحيح فعّله بدلاً من التعطيل
 def register():
-    form = RegisterForm()
-    if form.validate_on_submit():
-        username = form.username.data
-        password = form.password.data
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
         hashed_pw = generate_password_hash(password)
+        conn = get_db()
+        cur = conn.cursor()
         try:
-            conn = get_db()
-            conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_pw))
+            cur.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_pw))
             conn.commit()
             flash("Registration successful. Please login.")
             return redirect('/login')
-        except:
+        except sqlite3.IntegrityError:
             flash("Username already exists.")
-    return render_template('register.html', form=form)
+    return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
+@csrf.exempt
 def login():
-    form = LoginForm()
-    if form.validate_on_submit():
-        username = form.username.data
-        password = form.password.data
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
         conn = get_db()
-        user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE username=?", (username,))
+        user = cur.fetchone()
         if user and check_password_hash(user['password'], password):
             session['username'] = user['username']
             session['user_id'] = user['id']
@@ -101,63 +85,68 @@ def login():
             return redirect('/dashboard')
         else:
             flash("Invalid username or password.")
-    return render_template('login.html', form=form)
+    return render_template('login.html')
 
 @app.route('/dashboard', methods=['GET', 'POST'])
+@csrf.exempt
 def dashboard():
     if 'user_id' not in session:
         return redirect('/login')
 
     conn = get_db()
-    user = conn.execute("SELECT balance FROM users WHERE id=?", (session['user_id'],)).fetchone()
-    form = TransferForm()
+    cur = conn.cursor()
+    cur.execute("SELECT balance FROM users WHERE id=?", (session['user_id'],))
+    balance = cur.fetchone()['balance']
 
-    if form.validate_on_submit():
-        to_user = form.to.data
-        amount = form.amount.data
+    if request.method == 'POST':
+        to_user = request.form['to']
+        try:
+            amount = int(request.form['amount'])
+            if amount <= 0:
+                flash("Invalid amount.")
+                return redirect('/dashboard')
 
-        if amount <= 0:
-            flash("Invalid amount.")
-            return redirect('/dashboard')
+            cur.execute("SELECT balance FROM users WHERE id=?", (session['user_id'],))
+            current_balance = cur.fetchone()['balance']
+            if current_balance < amount:
+                flash("Insufficient balance.")
+                return redirect('/dashboard')
 
-        current_balance = user['balance']
-        if current_balance < amount:
-            flash("Insufficient balance.")
-            return redirect('/dashboard')
+            cur.execute("SELECT id FROM users WHERE username=?", (to_user,))
+            recipient = cur.fetchone()
+            if not recipient:
+                flash("Recipient not found.")
+                return redirect('/dashboard')
 
-        recipient = conn.execute("SELECT id FROM users WHERE username=?", (to_user,)).fetchone()
-        if not recipient:
-            flash("Recipient not found.")
-            return redirect('/dashboard')
-
-        conn.execute("UPDATE users SET balance = balance - ? WHERE id=?", (amount, session['user_id']))
-        conn.execute("UPDATE users SET balance = balance + ? WHERE username=?", (amount, to_user))
-        conn.commit()
-        flash("Transfer successful.")
-
-    return render_template('dashboard.html', username=session['username'], balance=user['balance'], form=form)
+            cur.execute("UPDATE users SET balance = balance - ? WHERE id=?", (amount, session['user_id']))
+            cur.execute("UPDATE users SET balance = balance + ? WHERE username=?", (amount, to_user))
+            conn.commit()
+            flash("Transfer successful.")
+        except ValueError:
+            flash("Invalid amount format.")
+    return render_template('dashboard.html', username=session['username'], balance=balance)
 
 @app.route('/comment', methods=['POST'])
+@csrf.exempt
 def comment():
     if 'username' not in session:
         return redirect('/login')
-    form = CommentForm()
-    if form.validate_on_submit():
-        content = form.comment.data
-        conn = get_db()
-        conn.execute("INSERT INTO comments (username, content) VALUES (?, ?)", (session['username'], content))
-        conn.commit()
+    content = request.form['comment']
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO comments (username, content) VALUES (?, ?)", (session['username'], content))
+    conn.commit()
     return redirect('/')
 
 @app.route('/admin', methods=['GET', 'POST'])
+@csrf.exempt
 def admin():
-    if session.get('role') != 'admin' or 'username' not in session:
+    if 'username' not in session or session.get('role') != 'admin':
+        flash("Unauthorized access.")
         return redirect('/login')
-
-    form = CommentForm()
-    if form.validate_on_submit():
-        flash(f"Post received: {form.comment.data}")
-    return render_template('admin.html', form=form)
+    if request.method == 'POST':
+        flash(f"Post received: {request.form['post']}")
+    return render_template('admin.html')
 
 @app.route('/logout')
 def logout():
