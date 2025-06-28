@@ -5,6 +5,7 @@ on:
     branches: [main]
 
 jobs:
+
   security-check:
     runs-on: ubuntu-latest
     steps:
@@ -26,7 +27,7 @@ jobs:
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Run SAST
-        run: python .github/workflows/scripts/sast.py app.py /templates
+        run: python .github/workflows/scripts/sast.py app.py /tamplates
 
       - name: Show SAST results
         run: |
@@ -69,10 +70,10 @@ jobs:
             echo "No style results file found."
           fi
 
+    
+
       - name: Run Trivy SCA
         run: trivy fs . --scanners vuln --severity HIGH,CRITICAL --format json --output trivy_results.json
-
-     
 
       - name: Merge all results
         run: |
@@ -84,6 +85,7 @@ jobs:
           echo '"secrets":' >> full_report.json && (cat secrets_found.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
           echo '"style":' >> full_report.json && (cat style_results.json || echo '[]') >> full_report.json
+          echo ',' >> full_report.json
           echo ',' >> full_report.json
           echo ',' >> full_report.json
           echo '"trivy":' >> full_report.json && (cat trivy_results.json || echo '[]') >> full_report.json
@@ -103,37 +105,37 @@ jobs:
 
       - name: Fail if real security issues found
         run: |
-         fail=0
-             for file in sast_results.json sca_results.json secrets_found.json style_results.json bandit_results.json detect_secrets.json; do
-            if [ -s "$file" ]; then
-           count=$(jq 'if type=="array" then length elif type=="object" and has("results") then .results | length else 0 end' "$file")
-           if [ "$count" -gt 0 ]; then
-          echo "Security issues detected in $file"
-          fail=1
-           fi
-          fi
-          done
+            fail=0
+            for file in sast_results.json sca_results.json secrets_found.json style_results.json bandit_results.json detect_secrets.json; do
+             if [ -s "$file" ]; then
+              count=$(jq 'if type=="array" then length elif type=="object" and has("results") then .results | length else 0 end' "$file")
+               if [ "$count" -gt 0 ]; then
+               echo "Security issues detected in $file"
+               fail=1
+               fi
+               fi
+               done
 
-            if [ -f trivy_results.json ]; then
-          trivy_count=$(jq '[.Results[]?.Vulnerabilities[]?] | length' trivy_results.json)
-          if [ "$trivy_count" -gt 0 ]; then
-            echo "Vulnerabilities found in Trivy scan"
-           fail=1
-          fi
-          fi
-   
-            if [ "$fail" -eq 1 ]; then
-            exit 1
-         else
-          echo "No real security issues detected."
-          fi
+                if [ -f trivy_results.json ]; then
+                 trivy_count=$(jq '[.Results[]?.Vulnerabilities[]?] | length' trivy_results.json)
+                 if [ "$trivy_count" -gt 0 ]; then
+                 echo "Vulnerabilities found in Trivy scan"
+                   fail=1
+                    fi
+                     fi
+
+                   if [ "$fail" -eq 1 ]; then
+                   exit 1
+                   else
+                   echo "No real security issues detected."
+                    fi
 
   build-and-push:
     needs: security-check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Log in to DockerHub
         run: echo "${{ secrets.PASS_SECRET }}" | docker login -u "x7m7s7" --password-stdin
@@ -148,15 +150,18 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Install latest flyctl CLI
+      - name: Install Fly.io CLI
         run: |
-          curl -L https://github.com/superfly/flyctl/releases/latest/download/flyctl_$(uname -s)_$(uname -m).tar.gz | tar xz
-          sudo mv flyctl /usr/local/bin/
+          curl -L https://fly.io/install.sh | sh
+          echo "::add-path::$HOME/.fly/bin"
 
       - name: Deploy to Staging on Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl deploy --remote-only --app devops-staging
+
+      - name: Run Smoke Test on Staging
+        run: python .github/workflows/scripts/smoke_test.py https://devops-staging.fly.dev
 
   zap-scan:
     needs: deploy-staging
@@ -181,10 +186,10 @@ jobs:
     needs: zap-scan
     runs-on: ubuntu-latest
     steps:
-      - name: Install latest flyctl CLI
+      - name: Install Fly.io CLI
         run: |
-          curl -L https://github.com/superfly/flyctl/releases/latest/download/flyctl_$(uname -s)_$(uname -m).tar.gz | tar xz
-          sudo mv flyctl /usr/local/bin/
+          curl -L https://fly.io/install.sh | sh
+          echo "::add-path::$HOME/.fly/bin"
 
       - name: Deploy to Production on Fly.io
         env:
