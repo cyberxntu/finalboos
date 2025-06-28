@@ -2,15 +2,34 @@ import sys
 import os
 import json
 import requests
+import glob
 
-def load_ignore_list(file_path=".scannerignore"):
+def load_ignore_list(path=".scannerignore"):
     ignore_list = set()
-    if os.path.exists(file_path):
-        with open(file_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    ignore_list.add(line)
+    if os.path.exists(path):
+        if os.path.isfile(path):
+            # اذا كان ملف
+            try:
+                with open(path, encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            ignore_list.add(line)
+            except Exception as e:
+                print(f"[!] Failed to read file: {path} -- {e}")
+        elif os.path.isdir(path):
+            # اذا كان مجلد، اقرأ كل الملفات اللي داخله
+            files = glob.glob(os.path.join(path, "*"))
+            for file_path in files:
+                if os.path.isfile(file_path):
+                    try:
+                        with open(file_path, encoding="utf-8", errors="ignore") as f:
+                            for line in f:
+                                line = line.strip()
+                                if line and not line.startswith("#"):
+                                    ignore_list.add(line)
+                    except Exception as e:
+                        print(f"[!] Failed to read file: {file_path} -- {e}")
     return ignore_list
 
 def should_ignore(filepath, ignore_list):
@@ -18,7 +37,7 @@ def should_ignore(filepath, ignore_list):
 
 def analyze_requirements(filepath):
     vulns = []
-    with open(filepath) as f:
+    with open(filepath, encoding="utf-8", errors="ignore") as f:
         for line in f:
             line = line.strip()
             if not line or '==' not in line:
@@ -55,7 +74,7 @@ if __name__ == '__main__':
             results.extend(analyze_requirements(target))
 
     if results:
-        with open("sca_results.json", "w") as out:
+        with open("sca_results.json", "w", encoding="utf-8") as out:
             json.dump(results, out, indent=2)
         print(json.dumps(results, indent=2))
         sys.exit(1)
