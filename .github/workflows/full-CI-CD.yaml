@@ -111,8 +111,22 @@ jobs:
             trivy_results.json
             full_report.json
 
+      # هذه الخطوة ستفشل الـ job لو أي فحص رجع exit code != 0
+      - name: Fail if security issues found
+        run: |
+          # تحقق من وجود أي ملف نتائج يشير لثغرات أو مشاكل
+          for file in sast_results.json sca_results.json secrets_found.json style_results.json bandit_results.json detect_secrets.json trivy_results.json; do
+            if [ -f "$file" ]; then
+              if grep -q '.' "$file"; then
+                echo "Security issues detected in $file"
+                exit 1
+              fi
+            fi
+          done
+          echo "No security issues detected."
+
   build-and-push:
-    needs: security-check   
+    needs: security-check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -158,9 +172,9 @@ jobs:
 
       - name: Send ZAP Report via Gmail
         env:
-            EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-            EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-            EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         run: python .github/workflows/scripts/send_email.py
 
   deploy-production:
