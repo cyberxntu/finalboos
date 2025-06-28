@@ -30,25 +30,45 @@ jobs:
         run: python .github/workflows/scripts/sast.py app.py /tamplates
 
       - name: Show SAST results
-        run: cat sast_results.json
+        run: |
+          if [ -f sast_results.json ]; then
+            cat sast_results.json
+          else
+            echo "No SAST results file found."
+          fi
 
       - name: Run SCA
         run: python .github/workflows/scripts/sca.py requirements.txt
 
       - name: Show SCA results
-        run: cat sca_results.json
+        run: |
+          if [ -f sca_results.json ]; then
+            cat sca_results.json
+          else
+            echo "No SCA results file found."
+          fi
 
       - name: Run Secret Scan
         run: python .github/workflows/scripts/secret_scanner.py
 
       - name: Show Secret Scan results
-        run: cat secrets_found.json
+        run: |
+          if [ -f secrets_found.json ]; then
+            cat secrets_found.json
+          else
+            echo "No secrets_found results file found."
+          fi
 
       - name: Run Code Style
         run: python .github/workflows/scripts/code_style.py
 
       - name: Show Code Style results
-        run: cat style_results.json
+        run: |
+          if [ -f style_results.json ]; then
+            cat style_results.json
+          else
+            echo "No style results file found."
+          fi
 
       - name: Run Bandit
         run: bandit -r . -f json -o bandit_results.json
@@ -62,19 +82,19 @@ jobs:
       - name: Merge all results
         run: |
           echo "{" > full_report.json
-          echo '"sast":' >> full_report.json && cat sast_results.json
+          echo '"sast":' >> full_report.json && cat sast_results.json || echo '[]' >> full_report.json
           echo ',' >> full_report.json
-          echo '"sca":' >> full_report.json && cat sca_results.json
+          echo '"sca":' >> full_report.json && cat sca_results.json || echo '[]' >> full_report.json
           echo ',' >> full_report.json
-          echo '"secrets":' >> full_report.json && cat secrets_found.json
+          echo '"secrets":' >> full_report.json && cat secrets_found.json || echo '[]' >> full_report.json
           echo ',' >> full_report.json
-          echo '"style":' >> full_report.json && cat style_results.json
+          echo '"style":' >> full_report.json && cat style_results.json || echo '[]' >> full_report.json
           echo ',' >> full_report.json
-          echo '"bandit":' >> full_report.json && cat bandit_results.json
+          echo '"bandit":' >> full_report.json && cat bandit_results.json || echo '[]' >> full_report.json
           echo ',' >> full_report.json
-          echo '"detect_secrets":' >> full_report.json && cat detect_secrets.json
+          echo '"detect_secrets":' >> full_report.json && cat detect_secrets.json || echo '[]' >> full_report.json
           echo ',' >> full_report.json
-          echo '"trivy":' >> full_report.json && cat trivy_results.json
+          echo '"trivy":' >> full_report.json && cat trivy_results.json || echo '[]' >> full_report.json
           echo "}" >> full_report.json
 
       - name: Upload Results
@@ -142,7 +162,6 @@ jobs:
             EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
             EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         run: python .github/workflows/scripts/send_email.py
-
 
   deploy-production:
     needs: zap-scan
