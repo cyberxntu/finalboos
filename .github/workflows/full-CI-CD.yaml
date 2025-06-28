@@ -153,7 +153,10 @@ jobs:
 
       - name: Deploy to Staging on Fly.io
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+              FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+              run: |
+                    ls -l      
+                      pwd 
         run: flyctl deploy --remote-only --app devops-staging
 
       - name: Run Smoke Test on Staging
