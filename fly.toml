@@ -1,14 +1,60 @@
+# fly.toml - الإصدار النهائي المعدل
 app = "devops-staging"
-primary_region = "ams"
+primary_region = "ams"  # أمستردام (يمكن تغييرها لـ iad, cdg, fra)
 
 [build]
-  image = "x7m7s7/devops:latest"  # استخدام الصورة الجاهزة مباشرة
-  # احذف جميع إعدادات البناء الأخرى (dockerfile, buildpacks...)
+  dockerfile = "Dockerfile"               # البناء من Dockerfile المحلي
+  builder = "docker"
+  buildpacks = ["paketobuildpacks/python"] # لتحسين بناء تطبيقات بايثون
+  build_args = {                          # إعدادات إضافية للبناء
+    PYTHON_VERSION = "3.11",
+    NODE_ENV = "production"
+  }
 
 [http_service]
-  internal_port = 8080
-  force_https = true
+  internal_port = 8080                    # مطابق لـ PORT في Dockerfile
+  force_https = true                      # إجبار HTTPS
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1                # الحد الأدنى للآلات العاملة
+
+[compute]
+  memory = "512mb"                        # الذاكرة (يمكن زيادتها لـ 1gb إذا لزم)
+  cpus = 1
+  vm_size = "shared-cpu-1x"               # مناسب للخطة المجانية
 
 [env]
-  PORT = "8080"
+  FLASK_APP = "app.py"                    # إعدادات Flask الأساسية
   FLASK_ENV = "production"
+  PORT = "8080"                           # يجب أن يتطابق مع internal_port
+  PYTHONUNBUFFERED = "1"                  # مهم لتسجيل السجلات
+
+  # إعدادات قاعدة البيانات (إذا كنت تستخدمها)
+  # DATABASE_URL = "postgres://user:pass@db.internal:5432/dbname"
+
+[deploy]
+  strategy = "rolling"                    # استراتيجية النشر بدون توقف
+  release_command = "python init_db.py"   # أوامر ما قبل النشر (اختياري)
+  wait_timeout = 600                      # زيادة وقت الانتظار للنشر
+
+[metrics]
+  port = 9090                             # لمراقبة الأداء
+  path = "/metrics"
+
+[statics]
+  guest_path = "/app/static"              # إذا كان لديك ملفات ثابتة
+  url_prefix = "/static"
+
+# إذا كنت تحتاج تخزينًا مستمرًا (إلغاء التعليق عند الحاجة)
+# [mounts]
+#   source = "data_volume"
+#   destination = "/data"
+
+[checks]                                  # فحوصات الصحة
+  health_check = {
+    port = 8080,
+    type = "http",
+    interval = "15s",
+    timeout = "2s",
+    path = "/health"
+  }
