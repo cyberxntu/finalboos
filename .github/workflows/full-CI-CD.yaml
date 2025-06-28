@@ -162,11 +162,18 @@ jobs:
                curl -L https://fly.io/install.sh | sh
                echo "$HOME/.fly/bin" >> $GITHUB_PATH
 
-      - name: Deploy to Staging on Fly.io
+      - name: Deploy with Retry
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl deploy --remote-only --app devops-staging
-
+            FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+           flyctl deploy --remote-only \
+             --app devops-staging \
+               --strategy rolling \
+            --wait-timeout 600 \
+             --no-smoke-checks  
+     
+               sleep 60
+                curl -sSf https://devops-staging.fly.dev/health || exit 1
       - name: Run Smoke Test on Staging
         run: python .github/workflows/scripts/smoke_test.py https://devops-staging.fly.dev
 
