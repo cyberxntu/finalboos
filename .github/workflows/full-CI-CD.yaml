@@ -1,0 +1,138 @@
+name: Full CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+
+  security-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install Python dependencies
+        run: pip install requests bandit detect-secrets
+
+      - name: Install Trivy (latest)
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Run SAST
+        run: python .github/workflows/scripts/sast.py app.py /tamplates
+
+      - name: Show SAST results
+        run: cat sast_results.json
+
+      # ... استمر بنفس خطوات الـ CI الأخرى هنا (SCA، Secret Scan، Bandit، Detect-Secrets، Trivy ...)
+
+      - name: Merge all results
+        run: |
+          echo "{" > full_report.json
+          echo '"sast":' >> full_report.json && cat sast_results.json
+          echo ',' >> full_report.json
+          echo '"sca":' >> full_report.json && cat sca_results.json
+          echo ',' >> full_report.json
+          echo '"secrets":' >> full_report.json && cat secrets_found.json
+          echo ',' >> full_report.json
+          echo '"style":' >> full_report.json && cat style_results.json
+          echo ',' >> full_report.json
+          echo '"bandit":' >> full_report.json && cat bandit_results.json
+          echo ',' >> full_report.json
+          echo '"detect_secrets":' >> full_report.json && cat detect_secrets.json
+          echo ',' >> full_report.json
+          echo '"trivy":' >> full_report.json && cat trivy_results.json
+          echo "}" >> full_report.json
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-results
+          path: |
+            sast_results.json
+            sca_results.json
+            secrets_found.json
+            style_results.json
+            bandit_results.json
+            detect_secrets.json
+            trivy_results.json
+            full_report.json
+
+  build-and-push:
+    needs: security-check    # هذا الربط الأساسي، يبطل تنفيذ هذه المرحلة لو فشل الـ CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Log in to DockerHub
+        run: echo "${{ secrets.PASS_SECRET }}" | docker login -u "x7m7s7" --password-stdin
+
+      - name: Build Docker Image
+        run: docker build -t x7m7s7/devops:latest .
+
+      - name: Push Docker Image
+        run: docker push x7m7s7/devops:latest
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Fly.io CLI
+        run: |
+          curl -L https://fly.io/install.sh | sh
+          echo "::add-path::$HOME/.fly/bin"
+
+      - name: Deploy to Staging on Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only --app devops-staging
+
+  zap-scan:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run ZAP Scan
+        uses: zaproxy/action-baseline@v0.7.0
+        with:
+          target: https://devops-staging.fly.dev
+          fail_action: true
+          report_file: zap_report.html
+          cmd_options: "-t 60"
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: zap-report
+          path: zap_report.html
+
+      - name: Send Report to Telegram
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -F "chat_id=$TELEGRAM_CHAT_ID" \
+               -F document=@zap_report.html \
+               https://api.telegram.org/bot$TELEGRAM_TOKEN/sendDocument
+
+  deploy-production:
+    needs: zap-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Fly.io CLI
+        run: |
+          curl -L https://fly.io/install.sh | sh
+          echo "::add-path::$HOME/.fly/bin"
+
+      - name: Deploy to Production on Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only --app devops-production
