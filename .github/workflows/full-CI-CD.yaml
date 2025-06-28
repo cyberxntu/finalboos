@@ -32,7 +32,32 @@ jobs:
       - name: Show SAST results
         run: cat sast_results.json
 
-      # ... استمر بنفس خطوات الـ CI الأخرى هنا (SCA، Secret Scan، Bandit، Detect-Secrets، Trivy ...)
+      - name: Run SCA
+        run: python .github/workflows/scripts/sca.py requirements.txt
+
+      - name: Show SCA results
+        run: cat sca_results.json
+
+      - name: Run Secret Scan
+        run: python .github/workflows/scripts/secret_scanner.py
+
+      - name: Show Secret Scan results
+        run: cat secrets_found.json
+
+      - name: Run Code Style
+        run: python .github/workflows/scripts/code_style.py
+
+      - name: Show Code Style results
+        run: cat style_results.json
+
+      - name: Run Bandit
+        run: bandit -r . -f json -o bandit_results.json
+
+      - name: Run detect-secrets
+        run: detect-secrets scan > detect_secrets.json
+
+      - name: Run Trivy SCA
+        run: trivy fs . --scanners vuln --severity HIGH,CRITICAL --format json --output trivy_results.json
 
       - name: Merge all results
         run: |
@@ -67,7 +92,7 @@ jobs:
             full_report.json
 
   build-and-push:
-    needs: security-check    # هذا الربط الأساسي، يبطل تنفيذ هذه المرحلة لو فشل الـ CI
+    needs: security-check   
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
