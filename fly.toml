@@ -1,39 +1,14 @@
-# الأساسيات
 app = "devops-staging"
-primary_region = "ams"  # أمستردام (اختر الأقرب لك: iad, cdg, fra)
+primary_region = "ams"
 
 [build]
-  image = "x7m7s7/devops:latest"
-  # أو استخدم بناء مباشر من Dockerfile:
-  # dockerfile = "Dockerfile"
+  image = "x7m7s7/devops:latest"  # استخدام الصورة الجاهزة مباشرة
+  # احذف جميع إعدادات البناء الأخرى (dockerfile, buildpacks...)
 
 [http_service]
-  internal_port = 8080    # يجب أن يتطابق مع PORT في Dockerfile
-  force_https = true      # تحويل جميع الاتصالات لـ HTTPS
-  auto_stop_machines = true
-  auto_start_machines = true
-  min_machines_running = 1
-
-[compute]
-  memory = "512mb"       # الحد الأدنى للتشغيل المستقر
-  cpus = 1
-  vm_size = "shared-cpu-1x"  # مناسب للخطة المجانية
+  internal_port = 8080
+  force_https = true
 
 [env]
+  PORT = "8080"
   FLASK_ENV = "production"
-  PORT = "8080"          # مطابق لـ internal_port
-  # DATABASE_URL = "postgres://user:pass@db.internal:5432"  # إذا كنت تستخدم DB
-
-[mounts]
-  # إذا احتجت تخزينًا مستمرًا:
-  # source = "data_volume"
-  # destination = "/data"
-
-# لإعدادات متقدمة (اختياري)
-[metrics]
-  port = 9090            # لمراقبة الأداء
-  path = "/metrics"
-
-[statics]
-  guest_path = "/app/static"
-  url_prefix = "/static"
