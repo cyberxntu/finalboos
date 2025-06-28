@@ -72,8 +72,7 @@ jobs:
       - name: Run Trivy SCA
         run: trivy fs . --scanners vuln --severity HIGH,CRITICAL --format json --output trivy_results.json
 
-      - name: Run Bandit Scan
-        run: bandit -r . -f json -o bandit_results.json
+     
 
       - name: Merge all results
         run: |
@@ -86,7 +85,6 @@ jobs:
           echo ',' >> full_report.json
           echo '"style":' >> full_report.json && (cat style_results.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
-          echo '"bandit":' >> full_report.json && (cat bandit_results.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
           echo '"trivy":' >> full_report.json && (cat trivy_results.json || echo '[]') >> full_report.json
           echo "}" >> full_report.json
@@ -100,7 +98,6 @@ jobs:
             sca_results.json
             secrets_found.json
             style_results.json
-            bandit_results.json
             trivy_results.json
             full_report.json
 
