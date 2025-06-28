@@ -3,7 +3,7 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'myapp-dark-sun-7658'
+app = 'devops-staging'
 primary_region = 'fra'
 
 [http_service]
