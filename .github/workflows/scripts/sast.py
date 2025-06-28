@@ -5,7 +5,7 @@ import json
 
 detected_issues = []
 
-def load_ignore_list(file_path=".scannerignore"):
+def load_ignore_list(file_path=".false_positives"):
     ignore_set = set()
     if os.path.exists(file_path):
         with open(file_path, "r") as f:
