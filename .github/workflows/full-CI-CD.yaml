@@ -141,10 +141,17 @@ jobs:
         run: echo "${{ secrets.PASS_SECRET }}" | docker login -u "x7m7s7" --password-stdin
 
       - name: Build Docker Image
-        run: docker build -t x7m7s7/devops:latest .
-
+        run: |
+           docker build \
+           --build-arg APP_ENV=staging \
+               -t x7m7s7/devops:latest \
+            -t x7m7s7/devops:staging-$(date +%Y%m%d) \
+              .
+      
       - name: Push Docker Image
-        run: docker push x7m7s7/devops:latest
+        run: |
+            docker push x7m7s7/devops:latest
+            docker push x7m7s7/devops:staging-$(date +%Y%m%d)
 
   deploy-staging:
     needs: build-and-push
