@@ -70,7 +70,16 @@ jobs:
             echo "No style results file found."
           fi
 
-    
+      - name: Run Bandit Scan
+        run: bandit -r . -f json -o bandit_results.json
+
+      - name: Show Bandit results
+        run: |
+          if [ -f bandit_results.json ]; then
+            cat bandit_results.json
+          else
+            echo "No bandit results file found."
+          fi
 
       - name: Run Trivy SCA
         run: trivy fs . --scanners vuln --severity HIGH,CRITICAL --format json --output trivy_results.json
@@ -86,7 +95,7 @@ jobs:
           echo ',' >> full_report.json
           echo '"style":' >> full_report.json && (cat style_results.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
-          echo ',' >> full_report.json
+          echo '"bandit":' >> full_report.json && (cat bandit_results.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
           echo '"trivy":' >> full_report.json && (cat trivy_results.json || echo '[]') >> full_report.json
           echo "}" >> full_report.json
@@ -100,37 +109,22 @@ jobs:
             sca_results.json
             secrets_found.json
             style_results.json
+            bandit_results.json
             trivy_results.json
             full_report.json
-   
-      - name: Fail if real security issues found
+
+      - name: Fail if security issues found
         run: |
-          fail=0
-            for file in sast_results.json sca_results.json secrets_found.json style_results.json bandit_results.json detect_secrets.json; do
-              if [ -s "$file" ]; then
-              count=$(jq 'if type=="array" then length elif type=="object" and has("results") then .results | length else 0 end' "$file")
-            if [ "$count" -gt 0 ]; then
-          echo "Security issues detected in $file"
-          fail=1
-          fi
-          fi
-          done
-
-          if [ -f trivy_results.json ]; then
-            trivy_count=$(jq '[.Results[]?.Vulnerabilities[]?] | length' trivy_results.json)
-          if [ "$trivy_count" -gt 0 ]; then
-          echo "Vulnerabilities found in Trivy scan"
-          fail=1
-          fi
-          fi
-
-          if [ "$fail" -eq 1 ]; then
-          exit 1
-          else
-            echo "No real security issues detected."
+          for file in sast_results.json sca_results.json secrets_found.json style_results.json bandit_results.json trivy_results.json; do
+            if [ -f "$file" ]; then
+              count=$(jq 'if type=="array" then length elif type=="object" then (keys | length) else 0 end' "$file")
+              if [ "$count" -gt 0 ]; then
+                echo "Security issues detected in $file"
+                exit 1
+              fi
             fi
-
-
+          done
+          echo "No security issues detected."
 
   build-and-push:
     needs: security-check
@@ -155,7 +149,7 @@ jobs:
       - name: Install Fly.io CLI
         run: |
           curl -L https://fly.io/install.sh | sh
-          echo "::add-path::$HOME/.fly/bin"
+          echo "$HOME/.fly/bin" >> $GITHUB_PATH
 
       - name: Deploy to Staging on Fly.io
         env:
@@ -191,7 +185,7 @@ jobs:
       - name: Install Fly.io CLI
         run: |
           curl -L https://fly.io/install.sh | sh
-          echo "::add-path::$HOME/.fly/bin"
+          echo "$HOME/.fly/bin" >> $GITHUB_PATH
 
       - name: Deploy to Production on Fly.io
         env:
