@@ -1,15 +1,10 @@
-# ================= SAST ADVANCED =================
 import ast
 import os
 import sys
 import json
 
-
-# ========== GLOBAL STORAGE FOR FINDINGS ==========
 detected_issues = []
 
-
-# ========== AST ANALYZER CLASS ==========
 class SASTScanner(ast.NodeVisitor):
     def __init__(self, filename):
         self.filename = filename
@@ -23,7 +18,6 @@ class SASTScanner(ast.NodeVisitor):
         })
 
     def visit_Assign(self, node):
-        # Hardcoded Secret Key
         for target in node.targets:
             if isinstance(target, ast.Name) and target.id == 'secret_key':
                 if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
@@ -31,14 +25,12 @@ class SASTScanner(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node):
-        # Plaintext password storage
         if isinstance(node.func, ast.Attribute) and node.func.attr == 'execute':
             for arg in node.args:
-                if isinstance(arg, ast.Constant):
-                    if 'INSERT INTO users' in arg.value and 'password' in arg.value:
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    if 'INSERT INTO users' in arg.value and 'password' in arg.value.lower():
                         self.report(node, "Plaintext Password Storage", "Possible storage of plaintext password in DB")
-        
-        # Potential XSS injection via render_template without sanitization
+
         if isinstance(node.func, ast.Name) and node.func.id == 'render_template':
             for kw in node.keywords:
                 if isinstance(kw.value, ast.Name):
@@ -47,35 +39,39 @@ class SASTScanner(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
-        # Missing CSRF protection
-        if any(isinstance(d, ast.Call) and hasattr(d.func, 'attr') and d.func.attr == 'route' for d in node.decorator_list):
-            if any("POST" in ast.dump(d) for d in node.decorator_list):
-                if 'csrf' not in node.name.lower():
-                    self.report(node, "Missing CSRF Protection", f"Function '{node.name}' handles POST without CSRF")
+        has_route_decorator = any(
+            isinstance(d, ast.Call) and hasattr(d.func, 'attr') and d.func.attr == 'route'
+            for d in node.decorator_list
+        )
+        is_post_handler = any(
+            isinstance(d, ast.Call) and "POST" in ast.dump(d)
+            for d in node.decorator_list
+        )
+        if has_route_decorator and is_post_handler:
+            if 'csrf' not in node.name.lower():
+                self.report(node, "Missing CSRF Protection", f"Function '{node.name}' handles POST without CSRF")
 
         self.generic_visit(node)
 
     def visit_If(self, node):
-        # Broken admin access control
-        src = ast.unparse(node) if hasattr(ast, 'unparse') else ""
-        if 'admin' in src and 'username' in src and 'session' in src:
-            if 'admin' not in src or '==' not in src:
+        try:
+            src = ast.unparse(node)
+            if 'admin' in src and 'session' in src and ('==' not in src or '!=' not in src):
                 self.report(node, "Broken Access Control", "Admin route lacks strict session verification")
+        except Exception:
+            pass
+
         self.generic_visit(node)
 
 
-# ========== IGNORE LIST ==========
 def load_ignore_list(file_path=".scannerignore"):
     ignore_list = set()
-    if os.path.exists(file_path):
-        if os.path.isfile(file_path):
-            with open(file_path) as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        ignore_list.add(line)
-        else:
-            print(f"[!] Warning: {file_path} exists but is not a file. Ignoring ignore list.")
+    if os.path.isfile(file_path):
+        with open(file_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    ignore_list.add(line)
     return ignore_list
 
 
@@ -83,7 +79,6 @@ def should_ignore(filepath, ignore_list):
     return any(ignored in filepath for ignored in ignore_list)
 
 
-# ========== SCAN LOGIC ==========
 def analyze_file(filepath):
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
