@@ -20,15 +20,33 @@ file_extensions = ('.py', '.env', '.json', '.yml', '.yaml', '.js', '.ts')
 
 matches = []
 
-def load_ignore_list(file_path=".scannerignore"):
+def load_ignore_list(path=".scannerignore"):
     ignore_list = set()
-    if os.path.exists(file_path):
-        with open(file_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    ignore_list.add(line)
+    if os.path.exists(path):
+        if os.path.isfile(path):
+            try:
+                with open(path, encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            ignore_list.add(line)
+            except Exception as e:
+                print(f"[!] Failed to read file: {path} -- {e}")
+        elif os.path.isdir(path):
+            import glob
+            files = glob.glob(os.path.join(path, "*"))
+            for file_path in files:
+                if os.path.isfile(file_path):
+                    try:
+                        with open(file_path, encoding="utf-8", errors="ignore") as f:
+                            for line in f:
+                                line = line.strip()
+                                if line and not line.startswith("#"):
+                                    ignore_list.add(line)
+                    except Exception as e:
+                        print(f"[!] Skipping file due to read error: {file_path} -- {e}")
     return ignore_list
+
 
 def should_ignore(filepath, ignore_list):
     return any(ignored in filepath for ignored in ignore_list)
