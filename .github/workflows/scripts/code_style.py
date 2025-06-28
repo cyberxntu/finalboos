@@ -1,16 +1,34 @@
 import os
 import sys
 import json
+import glob
+
 issues = []
 
-def load_ignore_list(file_path=".scannerignore"):
+def load_ignore_list(path=".scannerignore"):
     ignore_list = set()
-    if os.path.exists(file_path):
-        with open(file_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    ignore_list.add(line)
+    if os.path.exists(path):
+        if os.path.isfile(path):
+            try:
+                with open(path, encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            ignore_list.add(line)
+            except Exception as e:
+                print(f"[!] Failed to read ignore file: {path} -- {e}")
+        elif os.path.isdir(path):
+            files = glob.glob(os.path.join(path, "*"))
+            for file_path in files:
+                if os.path.isfile(file_path):
+                    try:
+                        with open(file_path, encoding="utf-8", errors="ignore") as f:
+                            for line in f:
+                                line = line.strip()
+                                if line and not line.startswith("#"):
+                                    ignore_list.add(line)
+                    except Exception as e:
+                        print(f"[!] Failed to read from ignore directory: {file_path} -- {e}")
     return ignore_list
 
 def should_ignore(filepath, ignore_list):
