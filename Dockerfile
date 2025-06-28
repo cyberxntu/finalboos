@@ -10,20 +10,20 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --user -r requirements.txt
+RUN pip install -r requirements.txt  # حذف --user هنا
 
 FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
-COPY --from=builder /root/.local /root/.local
+COPY --from=builder /usr/local /usr/local  # انسخ مجلد التثبيت system-wide
 COPY . .
 
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
-ENV PATH=/root/.local/bin:$PATH
+ENV PATH=/usr/local/bin:$PATH  # ضبط PATH
 
 EXPOSE 8080
 
