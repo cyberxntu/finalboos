@@ -72,9 +72,7 @@ jobs:
 
       - name: Run Bandit
         run: bandit -r . -f json -o bandit_results.json || true
-
-      - name: Run detect-secrets
-        run: detect-secrets scan > detect_secrets.json
+        
 
       - name: Run Trivy SCA
         run: trivy fs . --scanners vuln --severity HIGH,CRITICAL --format json --output trivy_results.json
@@ -92,7 +90,6 @@ jobs:
           echo ',' >> full_report.json
           echo '"bandit":' >> full_report.json && (cat bandit_results.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
-          echo '"detect_secrets":' >> full_report.json && (cat detect_secrets.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
           echo '"trivy":' >> full_report.json && (cat trivy_results.json || echo '[]') >> full_report.json
           echo "}" >> full_report.json
@@ -107,7 +104,6 @@ jobs:
             secrets_found.json
             style_results.json
             bandit_results.json
-            detect_secrets.json
             trivy_results.json
             full_report.json
 
