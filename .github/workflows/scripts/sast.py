@@ -89,6 +89,21 @@ def load_ignore_list(path=".scannerignore"):
     return ignore_list
 
 
+    def should_ignore(issue, ignore_list):
+    file = issue['file']
+    line = str(issue.get('line', ''))
+    vuln_type = issue.get('type', '')
+
+    ignore_keys = {
+        file,
+        f"{file}:{line}",
+        f"{file}:{vuln_type}",
+        f"{file}:{line}:{vuln_type}"
+    }
+
+    return any(key in ignore_list for key in ignore_keys)
+
+
 # ========== SCAN LOGIC ==========
 def analyze_file(filepath, ignore_list):
     try:
