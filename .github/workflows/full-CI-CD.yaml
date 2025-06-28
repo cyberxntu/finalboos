@@ -20,7 +20,7 @@ jobs:
           python-version: "3.10"
 
       - name: Install Python dependencies
-        run: pip install requests bandit detect-secrets
+        run: pip install requests bandit detect-secrets jq
 
       - name: Install Trivy (latest)
         run: |
@@ -82,19 +82,19 @@ jobs:
       - name: Merge all results
         run: |
           echo "{" > full_report.json
-          echo '"sast":' >> full_report.json && cat sast_results.json || echo '[]' >> full_report.json
+          echo '"sast":' >> full_report.json && (cat sast_results.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
-          echo '"sca":' >> full_report.json && cat sca_results.json || echo '[]' >> full_report.json
+          echo '"sca":' >> full_report.json && (cat sca_results.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
-          echo '"secrets":' >> full_report.json && cat secrets_found.json || echo '[]' >> full_report.json
+          echo '"secrets":' >> full_report.json && (cat secrets_found.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
-          echo '"style":' >> full_report.json && cat style_results.json || echo '[]' >> full_report.json
+          echo '"style":' >> full_report.json && (cat style_results.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
-          echo '"bandit":' >> full_report.json && cat bandit_results.json || echo '[]' >> full_report.json
+          echo '"bandit":' >> full_report.json && (cat bandit_results.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
-          echo '"detect_secrets":' >> full_report.json && cat detect_secrets.json || echo '[]' >> full_report.json
+          echo '"detect_secrets":' >> full_report.json && (cat detect_secrets.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
-          echo '"trivy":' >> full_report.json && cat trivy_results.json || echo '[]' >> full_report.json
+          echo '"trivy":' >> full_report.json && (cat trivy_results.json || echo '[]') >> full_report.json
           echo "}" >> full_report.json
 
       - name: Upload Results
@@ -111,13 +111,12 @@ jobs:
             trivy_results.json
             full_report.json
 
-      # هذه الخطوة ستفشل الـ job لو أي فحص رجع exit code != 0
       - name: Fail if security issues found
         run: |
-          # تحقق من وجود أي ملف نتائج يشير لثغرات أو مشاكل
           for file in sast_results.json sca_results.json secrets_found.json style_results.json bandit_results.json detect_secrets.json trivy_results.json; do
             if [ -f "$file" ]; then
-              if grep -q '.' "$file"; then
+              count=$(jq 'if type=="array" then length elif type=="object" then (keys | length) else 0 end' "$file")
+              if [ "$count" -gt 0 ]; then
                 echo "Security issues detected in $file"
                 exit 1
               fi
