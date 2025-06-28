@@ -21,7 +21,6 @@ class SASTScanner(ast.NodeVisitor):
         })
 
     def visit_Assign(self, node):
-        # Hardcoded Secret Key
         for target in node.targets:
             if isinstance(target, ast.Name) and target.id == 'secret_key':
                 if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
@@ -29,14 +28,12 @@ class SASTScanner(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node):
-        # Plaintext password storage
         if isinstance(node.func, ast.Attribute) and node.func.attr == 'execute':
             for arg in node.args:
                 if isinstance(arg, ast.Constant):
                     if 'INSERT INTO users' in arg.value and 'password' in arg.value:
                         self.report(node, "Plaintext Password Storage", "Possible storage of plaintext password in DB")
-        
-        # Potential XSS injection via render_template without sanitization
+
         if isinstance(node.func, ast.Name) and node.func.id == 'render_template':
             for kw in node.keywords:
                 if isinstance(kw.value, ast.Name):
@@ -45,7 +42,6 @@ class SASTScanner(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node):
-        # Missing CSRF protection
         if any(isinstance(d, ast.Call) and hasattr(d.func, 'attr') and d.func.attr == 'route' for d in node.decorator_list):
             if any("POST" in ast.dump(d) for d in node.decorator_list):
                 if 'csrf' not in node.name.lower():
@@ -54,7 +50,6 @@ class SASTScanner(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_If(self, node):
-        # Broken admin access control
         src = ast.unparse(node) if hasattr(ast, 'unparse') else ""
         if 'admin' in src and 'username' in src and 'session' in src:
             if 'admin' not in src or '==' not in src:
@@ -88,8 +83,7 @@ def load_ignore_list(path=".scannerignore"):
                         print(f"[!] Skipping file due to read error: {file_path} -- {e}")
     return ignore_list
 
-
-    def should_ignore(issue, ignore_list):
+def should_ignore(issue, ignore_list):
     file = issue['file']
     line = str(issue.get('line', ''))
     vuln_type = issue.get('type', '')
@@ -103,9 +97,8 @@ def load_ignore_list(path=".scannerignore"):
 
     return any(key in ignore_list for key in ignore_keys)
 
-
 # ========== SCAN LOGIC ==========
-def analyze_file(filepath, ignore_list):
+def analyze_file(filepath):
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             tree = ast.parse(f.read(), filename=filepath)
@@ -121,15 +114,14 @@ if __name__ == '__main__':
     targets = sys.argv[1:] if len(sys.argv) > 1 else ["."]
     for target in targets:
         if os.path.isfile(target) and target.endswith(".py"):
-            analyze_file(target, ignore_list)
+            analyze_file(target)
         elif os.path.isdir(target):
             for root, _, files in os.walk(target):
                 for file in files:
                     if file.endswith(".py"):
                         filepath = os.path.join(root, file)
-                        analyze_file(filepath, ignore_list)
+                        analyze_file(filepath)
 
-    # فلترة الثغرات حسب ignore_list
     filtered_issues = [issue for issue in detected_issues if not should_ignore(issue, ignore_list)]
 
     if filtered_issues:
