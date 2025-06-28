@@ -70,8 +70,6 @@ jobs:
             echo "No style results file found."
           fi
 
-    
-
       - name: Run Trivy SCA
         run: trivy fs . --scanners vuln --severity HIGH,CRITICAL --format json --output trivy_results.json
 
@@ -85,8 +83,6 @@ jobs:
           echo '"secrets":' >> full_report.json && (cat secrets_found.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
           echo '"style":' >> full_report.json && (cat style_results.json || echo '[]') >> full_report.json
-          echo ',' >> full_report.json
-          echo ',' >> full_report.json
           echo ',' >> full_report.json
           echo '"trivy":' >> full_report.json && (cat trivy_results.json || echo '[]') >> full_report.json
           echo "}" >> full_report.json
@@ -168,12 +164,13 @@ jobs:
         run: |
            flyctl deploy --remote-only \
              --app devops-staging \
-               --strategy rolling \
-            --wait-timeout 600 \
-             --no-smoke-checks  
+             --strategy rolling \
+             --wait-timeout 600 \
+             --smoke-checks=false  
      
-               sleep 60
-                curl -sSf https://devops-staging.fly.dev/health || exit 1
+           sleep 60
+           curl -sSf https://devops-staging.fly.dev/health || exit 1
+
       - name: Run Smoke Test on Staging
         run: python .github/workflows/scripts/smoke_test.py https://devops-staging.fly.dev
 
