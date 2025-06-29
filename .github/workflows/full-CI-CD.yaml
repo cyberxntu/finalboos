@@ -138,38 +138,33 @@ jobs:
           sleep 60
           curl -sSf https://devops-staging.fly.dev/health || exit 1
 
-  zap-scan:
+  arachni-scan:
     needs: deploy-staging
     runs-on: ubuntu-latest
     steps:
-      - name: OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.8.0
-        with:
-          target: 'https://devops-staging.fly.dev'
-          cmd_options: '-r zap-report.html -J zap-report.json -w zap-report.md'
-          fail_action: 'warn'
+      - name: Run Arachni scan
+        run: |
+          docker run --rm \
+          --name arachni-scan \
+          -v ${{ github.workspace }}/arachni-reports:/reports \
+          arachni/arachni \
+          arachni https://devops-staging.fly.dev --report-save-path=/reports/report.afr --output-only-positives
 
-      - name: List generated files for debug
-        run: ls -la
+      - name: Convert Arachni report to HTML
+        run: |
+          docker run --rm \
+          -v ${{ github.workspace }}/arachni-reports:/reports \
+          arachni/arachni \
+          arachni_reporter /reports/report.afr --report-html=/reports/report.html
 
-      - name: Upload ZAP Reports
+      - name: Upload Arachni Reports
         uses: actions/upload-artifact@v4
         with:
-          name: zap_reports
-          path: |
-            ./zap-report.html
-            ./zap-report.json
-            ./zap-report.md
-
-      - name: Send ZAP Report via Gmail
-        env:
-          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python .github/workflows/scripts/send_email.py
+          name: arachni-reports
+          path: arachni-reports/
 
   deploy-production:
-    needs: zap-scan
+    needs: arachni-scan
     runs-on: ubuntu-latest
     steps:
       - name: Install Fly.io CLI
