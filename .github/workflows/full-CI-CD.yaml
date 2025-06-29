@@ -138,33 +138,25 @@ jobs:
           sleep 60
           curl -sSf https://devops-staging.fly.dev/health || exit 1
 
-  arachni-scan:
+  nikto-scan:
     needs: deploy-staging
     runs-on: ubuntu-latest
     steps:
-      - name: Run Arachni scan
-        run: |
-          mkdir -p arachni-reports
-          docker run --rm \
-            --name arachni-scan \
-            -v ${{ github.workspace }}/arachni-reports:/reports \
-            arachni/arachni \
-            arachni --output-only-positives --report-save-path=/reports/report.afr https://devops-staging.fly.dev
+      - name: Install Nikto
+        run: sudo apt-get update && sudo apt-get install -y nikto
 
-      - name: Convert Arachni report to HTML
+      - name: Run Nikto scan on staging
         run: |
-          docker run --rm \
-            -v ${{ github.workspace }}/arachni-reports:/reports \
-            arachni/arachni \
-            arachni_reporter /reports/report.afr --report-html=/reports/report.html
+          mkdir -p nikto_reports
+          nikto -h https://devops-staging.fly.dev -o nikto_reports/nikto_report.html -Format htm
 
-      - name: Upload Arachni Reports
+      - name: Upload Nikto report
         uses: actions/upload-artifact@v4
         with:
-          name: arachni-reports
-          path: arachni-reports/
+          name: nikto-report
+          path: nikto_reports/nikto_report.html
 
-      - name: Send Arachni Report via Gmail
+      - name: Send Nikto Report via Gmail
         env:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
@@ -172,7 +164,7 @@ jobs:
         run: python .github/workflows/scripts/send_email.py
 
   deploy-production:
-    needs: arachni-scan
+    needs: nikto-scan
     runs-on: ubuntu-latest
     steps:
       - name: Install Fly.io CLI
