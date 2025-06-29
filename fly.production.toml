@@ -1,0 +1,11 @@
+app = "devops-production"
+
+[build]
+  image = "x7m7s7/devops:latest"  # أو استخدم tag خاص بالبرود
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+
+[env]
+  PORT = "8080"
