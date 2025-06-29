@@ -22,7 +22,7 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests bandit detect-secrets jq
 
-      - name: Install Trivy
+      - name: Install Trivy (latest)
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
@@ -31,32 +31,44 @@ jobs:
 
       - name: Show SAST results
         run: |
-          if [ -f sast_results.json ]; then cat sast_results.json
-          else echo "No SAST results file found."; fi
+          if [ -f sast_results.json ]; then
+            cat sast_results.json
+          else
+            echo "No SAST results file found."
+          fi
 
       - name: Run SCA
         run: python .github/workflows/scripts/sca.py requirements.txt
 
       - name: Show SCA results
         run: |
-          if [ -f sca_results.json ]; then cat sca_results.json
-          else echo "No SCA results file found."; fi
+          if [ -f sca_results.json ]; then
+            cat sca_results.json
+          else
+            echo "No SCA results file found."
+          fi
 
       - name: Run Secret Scan
         run: python .github/workflows/scripts/secret_scanner.py
 
       - name: Show Secret Scan results
         run: |
-          if [ -f secrets_found.json ]; then cat secrets_found.json
-          else echo "No secrets_found results file found."; fi
+          if [ -f secrets_found.json ]; then
+            cat secrets_found.json
+          else
+            echo "No secrets_found results file found."
+          fi
 
       - name: Run Code Style
         run: python .github/workflows/scripts/code_style.py
 
       - name: Show Code Style results
         run: |
-          if [ -f style_results.json ]; then cat style_results.json
-          else echo "No style results file found."; fi
+          if [ -f style_results.json ]; then
+            cat style_results.json
+          else
+            echo "No style results file found."
+          fi
 
       - name: Merge all results
         run: |
@@ -93,6 +105,9 @@ jobs:
               fi
             fi
           done
+          if [ "$fail" -eq 1 ]; then
+            exit 1
+          fi
 
   build-and-push:
     needs: security-check
@@ -126,7 +141,7 @@ jobs:
           curl -L https://fly.io/install.sh | sh
           echo "$HOME/.fly/bin" >> $GITHUB_PATH
 
-      - name: Deploy to Staging on Fly.io
+      - name: Deploy with Retry
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           FLY_TELEMETRY_DISABLED: "1"
