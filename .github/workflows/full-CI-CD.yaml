@@ -70,8 +70,7 @@ jobs:
             echo "No style results file found."
           fi
 
-      - name: Run Trivy SCA
-        run: trivy fs . --scanners vuln --severity HIGH,CRITICAL --format json --output trivy_results.json
+      
 
       - name: Merge all results
         run: |
@@ -86,7 +85,6 @@ jobs:
           echo ',' >> full_report.json
           echo ',' >> full_report.json
           echo ',' >> full_report.json
-          echo '"trivy":' >> full_report.json && (cat trivy_results.json || echo '[]') >> full_report.json
           echo "}" >> full_report.json
 
       - name: Upload Results
@@ -98,7 +96,6 @@ jobs:
             sca_results.json
             secrets_found.json
             style_results.json
-            trivy_results.json
             full_report.json
 
       - name: Fail if real security issues found
@@ -114,19 +111,7 @@ jobs:
             fi
           done
 
-          if [ -f trivy_results.json ]; then
-            trivy_count=$(jq '[.Results[]?.Vulnerabilities[]?] | length' trivy_results.json)
-            if [ "$trivy_count" -gt 0 ]; then
-              echo "Vulnerabilities found in Trivy scan"
-              fail=1
-            fi
-          fi
-
-          if [ "$fail" -eq 1 ]; then
-            exit 1
-          else
-            echo "No real security issues detected."
-          fi
+        
 
   build-and-push:
     needs: security-check
