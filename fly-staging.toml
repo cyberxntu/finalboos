@@ -17,3 +17,5 @@ app = "devops-staging"
   [[services.ports]]
     handlers = ["tls", "http"]
     port = 443
+[processes]
+  app = "gunicorn -w 1 -b 0.0.0.0:5000 app:app"
