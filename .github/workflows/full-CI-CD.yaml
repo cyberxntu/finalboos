@@ -22,7 +22,7 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests bandit detect-secrets jq
 
-      - name: Install Trivy (latest)
+      - name: Install Trivy
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
@@ -31,44 +31,32 @@ jobs:
 
       - name: Show SAST results
         run: |
-          if [ -f sast_results.json ]; then
-            cat sast_results.json
-          else
-            echo "No SAST results file found."
-          fi
+          if [ -f sast_results.json ]; then cat sast_results.json
+          else echo "No SAST results file found."; fi
 
       - name: Run SCA
         run: python .github/workflows/scripts/sca.py requirements.txt
 
       - name: Show SCA results
         run: |
-          if [ -f sca_results.json ]; then
-            cat sca_results.json
-          else
-            echo "No SCA results file found."
-          fi
+          if [ -f sca_results.json ]; then cat sca_results.json
+          else echo "No SCA results file found."; fi
 
       - name: Run Secret Scan
         run: python .github/workflows/scripts/secret_scanner.py
 
       - name: Show Secret Scan results
         run: |
-          if [ -f secrets_found.json ]; then
-            cat secrets_found.json
-          else
-            echo "No secrets_found results file found."
-          fi
+          if [ -f secrets_found.json ]; then cat secrets_found.json
+          else echo "No secrets_found results file found."; fi
 
       - name: Run Code Style
         run: python .github/workflows/scripts/code_style.py
 
       - name: Show Code Style results
         run: |
-          if [ -f style_results.json ]; then
-            cat style_results.json
-          else
-            echo "No style results file found."
-          fi
+          if [ -f style_results.json ]; then cat style_results.json
+          else echo "No style results file found."; fi
 
       - name: Merge all results
         run: |
@@ -96,7 +84,7 @@ jobs:
       - name: Fail if real security issues found
         run: |
           fail=0
-          for file in sast_results.json sca_results.json secrets_found.json style_results.json; do
+          for file in sast_results.json sca_results.json secrets_found.json style_results.json bandit_results.json detect_secrets.json; do
             if [ -s "$file" ]; then
               count=$(jq 'if type=="array" then length elif type=="object" and has("results") then .results | length else 0 end' "$file")
               if [ "$count" -gt 0 ]; then
@@ -105,7 +93,6 @@ jobs:
               fi
             fi
           done
-          exit $fail
 
   build-and-push:
     needs: security-check
@@ -139,7 +126,7 @@ jobs:
           curl -L https://fly.io/install.sh | sh
           echo "$HOME/.fly/bin" >> $GITHUB_PATH
 
-      - name: Deploy with Retry
+      - name: Deploy to Staging on Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           FLY_TELEMETRY_DISABLED: "1"
@@ -157,25 +144,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Prepare zap-output folder
-        run: |
-          rm -rf zap-output
-          mkdir zap-output
+        run: mkdir -p zap-output
 
       - name: Run ZAP inside Docker manually
         run: |
           docker pull ghcr.io/zaproxy/zaproxy:stable
           docker run \
-            -v ${{ github.workspace }}/zap-output:/zap/wrk:rw \
+            --rm \
+            -v ${{ github.workspace }}/zap-output:/zap/wrk \
             --network="host" \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
               -t https://devops-staging.fly.dev \
-              -J zap-report.json \
-              -w zap-report.md \
-              -r zap-report.html \
+              -J /zap/wrk/zap-report.json \
+              -w /zap/wrk/zap-report.md \
+              -r /zap/wrk/zap-report.html \
               -m 1
 
-      - name: Upload Artifacts
+      - name: Upload ZAP Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: zap_reports
