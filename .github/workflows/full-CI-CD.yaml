@@ -144,24 +144,32 @@ jobs:
     steps:
       - name: Run Arachni scan
         run: |
+          mkdir -p arachni-reports
           docker run --rm \
-          --name arachni-scan \
-          -v ${{ github.workspace }}/arachni-reports:/reports \
-          arachni/arachni \
-          arachni https://devops-staging.fly.dev --report-save-path=/reports/report.afr --output-only-positives
+            --name arachni-scan \
+            -v ${{ github.workspace }}/arachni-reports:/reports \
+            arachni/arachni \
+            arachni_scan https://devops-staging.fly.dev --report-save-path=/reports/report.afr --output-only-positives
 
       - name: Convert Arachni report to HTML
         run: |
           docker run --rm \
-          -v ${{ github.workspace }}/arachni-reports:/reports \
-          arachni/arachni \
-          arachni_reporter /reports/report.afr --report-html=/reports/report.html
+            -v ${{ github.workspace }}/arachni-reports:/reports \
+            arachni/arachni \
+            arachni_reporter /reports/report.afr --report-html=/reports/report.html
 
       - name: Upload Arachni Reports
         uses: actions/upload-artifact@v4
         with:
           name: arachni-reports
           path: arachni-reports/
+
+      - name: Send Arachni Report via Gmail
+        env:
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+        run: python .github/workflows/scripts/send_email.py
 
   deploy-production:
     needs: arachni-scan
