@@ -1,13 +1,10 @@
 app = "devops-staging"
 
 [build]
-  image = "x7m7s7/devops:latest"
+  image = "x7m7s7/devops:latest"  # خليه هنا بس علشان التوثيق، لكنه ما يستخدم أثناء --image
 
 [env]
   INIT = "true"
-
-[experimental]
-  auto_rollback = true
 
 [[services]]
   internal_port = 5000
@@ -20,19 +17,3 @@ app = "devops-staging"
   [[services.ports]]
     handlers = ["tls", "http"]
     port = 443
-
-  [[services.tcp_checks]]
-    interval = "15s"
-    timeout = "2s"
-    grace_period = "10s"
-    restart_limit = 0
-
-[checks]
-  [checks.http_check]
-    type = "http"
-    interval = "10s"
-    timeout = "2s"
-    path = "/"
-    grace_period = "5s"
-    method = "get"
-    protocol = "http"
