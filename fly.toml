@@ -1,12 +1,38 @@
 app = "devops-staging"
-primary_region = "ams"
 
 [build]
-  image = "x7m7s7/devops:latest"  # تأكد أن الصورة موجودة فعلاً في Docker Hub
-
-[http_service]
-  internal_port = 8080
-  force_https = true
+  image = "x7m7s7/devops:latest"
 
 [env]
-  PORT = "8080"
+  INIT = "true"
+
+[experimental]
+  auto_rollback = true
+
+[[services]]
+  internal_port = 5000
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+    restart_limit = 0
+
+[checks]
+  [checks.http_check]
+    type = "http"
+    interval = "10s"
+    timeout = "2s"
+    path = "/"
+    grace_period = "5s"
+    method = "get"
+    protocol = "http"
