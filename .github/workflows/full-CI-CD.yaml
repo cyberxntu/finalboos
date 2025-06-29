@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -20,21 +22,37 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests bandit detect-secrets jq
 
-      - name: Install Trivy
+      - name: Install Trivy (latest)
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Run SAST
-        run: python .github/workflows/scripts/sast.py app.py /tamplates
+        run: python .github/workflows/scripts/sast.py app.py /templates
+
+      - name: Show SAST results
+        run: |
+          if [ -f sast_results.json ]; then cat sast_results.json; else echo "No SAST results file found."; fi
 
       - name: Run SCA
         run: python .github/workflows/scripts/sca.py requirements.txt
 
+      - name: Show SCA results
+        run: |
+          if [ -f sca_results.json ]; then cat sca_results.json; else echo "No SCA results file found."; fi
+
       - name: Run Secret Scan
         run: python .github/workflows/scripts/secret_scanner.py
 
+      - name: Show Secret Scan results
+        run: |
+          if [ -f secrets_found.json ]; then cat secrets_found.json; else echo "No secrets_found results file found."; fi
+
       - name: Run Code Style
         run: python .github/workflows/scripts/code_style.py
+
+      - name: Show Code Style results
+        run: |
+          if [ -f style_results.json ]; then cat style_results.json; else echo "No style results file found."; fi
 
       - name: Merge all results
         run: |
@@ -59,12 +77,28 @@ jobs:
             style_results.json
             full_report.json
 
+      - name: Fail if real security issues found
+        run: |
+          fail=0
+          for file in sast_results.json sca_results.json secrets_found.json style_results.json; do
+            if [ -s "$file" ]; then
+              count=$(jq 'if type=="array" then length elif type=="object" and has("results") then .results | length else 0 end' "$file")
+              if [ "$count" -gt 0 ]; then
+                echo "Security issues detected in $file"
+                fail=1
+              fi
+            fi
+          done
+          if [ "$fail" -eq 1 ]; then
+            exit 1
+          fi
+
   build-and-push:
     needs: security-check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Log in to DockerHub
         run: echo "${{ secrets.PASS_SECRET }}" | docker login -u "x7m7s7" --password-stdin
@@ -74,7 +108,8 @@ jobs:
           docker build \
           --build-arg APP_ENV=staging \
           -t x7m7s7/devops:latest \
-          -t x7m7s7/devops:staging-$(date +%Y%m%d) .
+          -t x7m7s7/devops:staging-$(date +%Y%m%d) \
+          .
 
       - name: Push Docker Image
         run: |
@@ -107,31 +142,21 @@ jobs:
     needs: deploy-staging
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.8.0
+        with:
+          target: 'https://devops-staging.fly.dev'
+          cmd_options: '-r zap-report.html -J zap-report.json -w zap-report.md'
+          fail_on_error: true
 
-      - name: Prepare report folder
-        run: mkdir -p zap-report
-
-      - name: Run ZAP Scan via Docker
-        run: |
-          docker pull ghcr.io/zaproxy/zaproxy:stable
-          docker run --rm \
-            -v ${{ github.workspace }}/zap-report:/zap/wrk \
-            --network="host" \
-            ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py \
-              -t https://devops-staging.fly.dev \
-              -J zap-report.json \
-              -w zap-report.md \
-              -r zap-report.html \
-              -m 1
-
-      - name: Upload ZAP Artifacts
+      - name: Upload ZAP Reports
         uses: actions/upload-artifact@v4
         with:
-          name: zap-reports
-          path: zap-report/*
+          name: zap_reports
+          path: |
+            zap-report.html
+            zap-report.json
+            zap-report.md
 
       - name: Send ZAP Report via Gmail
         env:
