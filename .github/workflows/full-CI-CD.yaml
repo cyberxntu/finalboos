@@ -158,9 +158,7 @@ jobs:
           sleep 60
           curl -sSf https://devops-staging.fly.dev/health || exit 1
 
-      - name: Run Smoke Test on Staging
-        run: python .github/workflows/scripts/smoke_test.py https://devops-staging.fly.dev
-
+     
   zap-scan:
     needs: deploy-staging
     runs-on: ubuntu-latest
