@@ -105,7 +105,9 @@ jobs:
               fi
             fi
           done
-          if [ $fail -eq 1 ]; then exit 1; fi
+          if [ $fail -eq 1 ]; then
+            exit 1
+          fi
 
   build-and-push:
     needs: security-check
@@ -160,17 +162,15 @@ jobs:
         run: docker pull ghcr.io/zaproxy/zaproxy:stable
 
       - name: Run ZAP scan and save report
-        id: zap_run
         run: |
-          container_id=$(docker run -d --rm --network="host" ghcr.io/zaproxy/zaproxy:stable sleep 600)
+          mkdir -p zap-output
+          container_id=$(docker run -d --rm --network="host" -v ${{ github.workspace }}/zap-output:/zap/wrk ghcr.io/zaproxy/zaproxy:stable sleep 600)
           docker exec $container_id zap-baseline.py \
             -t https://devops-staging.fly.dev \
-            -J /tmp/zap-output/zap-report.json \
-            -w /tmp/zap-output/zap-report.md \
-            -r /tmp/zap-output/zap-report.html \
+            -J /zap/wrk/zap-report.json \
+            -w /zap/wrk/zap-report.md \
+            -r /zap/wrk/zap-report.html \
             -m 1
-          mkdir -p zap-output
-          docker cp $container_id:/tmp/zap-output/. zap-output/
           docker stop $container_id
 
       - name: Upload ZAP Artifacts
