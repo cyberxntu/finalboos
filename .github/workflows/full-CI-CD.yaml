@@ -149,7 +149,7 @@ jobs:
             --name arachni-scan \
             -v ${{ github.workspace }}/arachni-reports:/reports \
             arachni/arachni \
-            arachni_scan https://devops-staging.fly.dev --report-save-path=/reports/report.afr --output-only-positives
+            arachni --output-only-positives --report-save-path=/reports/report.afr https://devops-staging.fly.dev
 
       - name: Convert Arachni report to HTML
         run: |
