@@ -156,13 +156,7 @@ jobs:
           name: nikto-report
           path: nikto_reports/nikto_report.html
 
-      - name: Send Nikto Report via Gmail
-        env:
-          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python .github/workflows/scripts/send_email.py
-
+     
   deploy-production:
     needs: nikto-scan
     runs-on: ubuntu-latest
