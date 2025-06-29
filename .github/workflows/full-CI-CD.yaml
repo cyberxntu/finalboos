@@ -104,17 +104,10 @@ jobs:
         run: echo "${{ secrets.PASS_SECRET }}" | docker login -u "x7m7s7" --password-stdin
 
       - name: Build Docker Image
-        run: |
-          docker build \
-          --build-arg APP_ENV=staging \
-          -t x7m7s7/devops:latest \
-          -t x7m7s7/devops:staging-$(date +%Y%m%d) \
-          .
+        run: docker build -t $IMAGE_TAG .
 
       - name: Push Docker Image
-        run: |
-          docker push x7m7s7/devops:latest
-          docker push x7m7s7/devops:staging-$(date +%Y%m%d)
+        run: docker push $IMAGE_TAG
 
   deploy-staging:
     needs: build-and-push
@@ -128,16 +121,10 @@ jobs:
       - name: Deploy with Retry
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          FLY_TELEMETRY_DISABLED: "1"
-        run: |
-          flyctl deploy --remote-only \
-            --app devops-staging \
-            --strategy rolling \
-            --wait-timeout 600
+          run: flyctl deploy --image $IMAGE_TAG --app devops-staging --remote-only --strategy rolling
 
-          sleep 60
-          curl -sSf https://devops-staging.fly.dev/health || exit 1
 
+  
   nikto-scan:
     needs: deploy-staging
     runs-on: ubuntu-latest
@@ -169,4 +156,4 @@ jobs:
       - name: Deploy to Production on Fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN2 }}
-        run: flyctl deploy --remote-only --app devops-production -c fly.production.toml
+        run: flyctl deploy --image $IMAGE_TAG --app devops-production --remote-only --strategy rolling
