@@ -31,28 +31,44 @@ jobs:
 
       - name: Show SAST results
         run: |
-          if [ -f sast_results.json ]; then cat sast_results.json; else echo "No SAST results file found."; fi
+          if [ -f sast_results.json ]; then
+            cat sast_results.json
+          else
+            echo "No SAST results file found."
+          fi
 
       - name: Run SCA
         run: python .github/workflows/scripts/sca.py requirements.txt
 
       - name: Show SCA results
         run: |
-          if [ -f sca_results.json ]; then cat sca_results.json; else echo "No SCA results file found."; fi
+          if [ -f sca_results.json ]; then
+            cat sca_results.json
+          else
+            echo "No SCA results file found."
+          fi
 
       - name: Run Secret Scan
         run: python .github/workflows/scripts/secret_scanner.py
 
       - name: Show Secret Scan results
         run: |
-          if [ -f secrets_found.json ]; then cat secrets_found.json; else echo "No secrets_found results file found."; fi
+          if [ -f secrets_found.json ]; then
+            cat secrets_found.json
+          else
+            echo "No secrets_found results file found."
+          fi
 
       - name: Run Code Style
         run: python .github/workflows/scripts/code_style.py
 
       - name: Show Code Style results
         run: |
-          if [ -f style_results.json ]; then cat style_results.json; else echo "No style results file found."; fi
+          if [ -f style_results.json ]; then
+            cat style_results.json
+          else
+            echo "No style results file found."
+          fi
 
       - name: Merge all results
         run: |
@@ -132,6 +148,7 @@ jobs:
             --app devops-staging \
             --strategy rolling \
             --wait-timeout 600
+
           sleep 60
           curl -sSf https://devops-staging.fly.dev/health || exit 1
 
@@ -139,8 +156,10 @@ jobs:
     needs: deploy-staging
     runs-on: ubuntu-latest
     steps:
-      - name: Prepare output folder
-        run: mkdir zap-output
+      - name: Prepare zap-output folder
+        run: |
+          rm -rf zap-output
+          mkdir zap-output
 
       - name: Run ZAP inside Docker manually
         run: |
@@ -160,7 +179,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zap_reports
-          path: zap-output/
+          path: zap-output
 
       - name: Send ZAP Report via Gmail
         env:
