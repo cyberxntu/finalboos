@@ -47,7 +47,6 @@ def index():
     cur = conn.cursor()
     cur.execute("SELECT * FROM comments")
     comments = cur.fetchall()
-    # نعقم التعليقات قبل العرض لتجنب XSS
     safe_comments = []
     for comment in comments:
         safe_content = bleach.clean(comment['content'])
@@ -108,21 +107,18 @@ def dashboard():
                 flash("Invalid amount.")
                 return redirect('/dashboard')
 
-            # تحقق من رصيد المستخدم
             cur.execute("SELECT balance FROM users WHERE id=?", (session['user_id'],))
             current_balance = cur.fetchone()['balance']
             if current_balance < amount:
                 flash("Insufficient balance.")
                 return redirect('/dashboard')
 
-            # تحقق من وجود المستلم
             cur.execute("SELECT id FROM users WHERE username=?", (to_user,))
             recipient = cur.fetchone()
             if not recipient:
                 flash("Recipient not found.")
                 return redirect('/dashboard')
 
-            # تنفيذ التحويل
             cur.execute("UPDATE users SET balance = balance - ? WHERE id=?", (amount, session['user_id']))
             cur.execute("UPDATE users SET balance = balance + ? WHERE username=?", (amount, to_user))
             conn.commit()
@@ -132,12 +128,11 @@ def dashboard():
     return render_template('dashboard.html', username=session['username'], balance=balance)
 
 @app.route('/comment', methods=['POST'])
-@csrf.exempt  # يمكن إزالة الإعفاء إذا استعملت FlaskForm مع CSRF
+@csrf.exempt
 def comment():
     if 'username' not in session:
         return redirect('/login')
     content = request.form['comment']
-    # نعقم المحتوى قبل الحفظ
     safe_content = bleach.clean(content)
     conn = get_db()
     cur = conn.cursor()
@@ -147,7 +142,6 @@ def comment():
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
-    # تحقق صارم من صلاحيات الادمن
     if 'username' not in session or session.get('role') != 'admin':
         flash("Access denied.")
         return redirect('/login')
@@ -160,6 +154,10 @@ def logout():
     session.clear()
     return redirect('/')
 
+# هذا هو التعديل المطلوب - Health check endpoint
+@app.route('/health')
+def health():
+    return "OK", 200
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-
