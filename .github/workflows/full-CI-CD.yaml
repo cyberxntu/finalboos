@@ -31,46 +31,28 @@ jobs:
 
       - name: Show SAST results
         run: |
-          if [ -f sast_results.json ]; then
-            cat sast_results.json
-          else
-            echo "No SAST results file found."
-          fi
+          if [ -f sast_results.json ]; then cat sast_results.json; else echo "No SAST results file found."; fi
 
       - name: Run SCA
         run: python .github/workflows/scripts/sca.py requirements.txt
 
       - name: Show SCA results
         run: |
-          if [ -f sca_results.json ]; then
-            cat sca_results.json
-          else
-            echo "No SCA results file found."
-          fi
+          if [ -f sca_results.json ]; then cat sca_results.json; else echo "No SCA results file found."; fi
 
       - name: Run Secret Scan
         run: python .github/workflows/scripts/secret_scanner.py
 
       - name: Show Secret Scan results
         run: |
-          if [ -f secrets_found.json ]; then
-            cat secrets_found.json
-          else
-            echo "No secrets_found results file found."
-          fi
+          if [ -f secrets_found.json ]; then cat secrets_found.json; else echo "No secrets_found results file found."; fi
 
       - name: Run Code Style
         run: python .github/workflows/scripts/code_style.py
 
       - name: Show Code Style results
         run: |
-          if [ -f style_results.json ]; then
-            cat style_results.json
-          else
-            echo "No style results file found."
-          fi
-
-      
+          if [ -f style_results.json ]; then cat style_results.json; else echo "No style results file found."; fi
 
       - name: Merge all results
         run: |
@@ -82,9 +64,6 @@ jobs:
           echo '"secrets":' >> full_report.json && (cat secrets_found.json || echo '[]') >> full_report.json
           echo ',' >> full_report.json
           echo '"style":' >> full_report.json && (cat style_results.json || echo '[]') >> full_report.json
-          echo ',' >> full_report.json
-          echo ',' >> full_report.json
-          echo ',' >> full_report.json
           echo "}" >> full_report.json
 
       - name: Upload Results
@@ -101,7 +80,7 @@ jobs:
       - name: Fail if real security issues found
         run: |
           fail=0
-          for file in sast_results.json sca_results.json secrets_found.json style_results.json bandit_results.json detect_secrets.json; do
+          for file in sast_results.json sca_results.json secrets_found.json style_results.json; do
             if [ -s "$file" ]; then
               count=$(jq 'if type=="array" then length elif type=="object" and has("results") then .results | length else 0 end' "$file")
               if [ "$count" -gt 0 ]; then
@@ -110,8 +89,7 @@ jobs:
               fi
             fi
           done
-
-        
+          exit $fail
 
   build-and-push:
     needs: security-check
@@ -148,26 +126,27 @@ jobs:
       - name: Deploy with Retry
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          FLY_TELEMETRY_DISABLED: "1"      # تعطيل إرسال metrics لتجنب توقف ال pipeline
+          FLY_TELEMETRY_DISABLED: "1"
         run: |
           flyctl deploy --remote-only \
             --app devops-staging \
             --strategy rolling \
             --wait-timeout 600
-
           sleep 60
           curl -sSf https://devops-staging.fly.dev/health || exit 1
 
-     
   zap-scan:
     needs: deploy-staging
     runs-on: ubuntu-latest
     steps:
-    - name: Run ZAP inside Docker manually
-      run: |
-         docker pull ghcr.io/zaproxy/zaproxy:stable
+      - name: Prepare output folder
+        run: mkdir zap-output
+
+      - name: Run ZAP inside Docker manually
+        run: |
+          docker pull ghcr.io/zaproxy/zaproxy:stable
           docker run \
-            -v ${{ github.workspace }}:/zap/wrk/:rw \
+            -v ${{ github.workspace }}/zap-output:/zap/wrk:rw \
             --network="host" \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
@@ -177,21 +156,18 @@ jobs:
               -r zap-report.html \
               -m 1
 
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
           name: zap_reports
-          path: |
-            zap-report.json
-            zap-report.md
-            zap-report.html
+          path: zap-output/
 
-    - name: Send ZAP Report via Gmail
-      env:
+      - name: Send ZAP Report via Gmail
+        env:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-      run: python .github/workflows/scripts/send_email.py
+        run: python .github/workflows/scripts/send_email.py
 
   deploy-production:
     needs: zap-scan
