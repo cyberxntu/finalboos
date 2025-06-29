@@ -1,33 +1,24 @@
 import smtplib
 import os
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from email.message import EmailMessage
 
-def send_email(subject, body, sender, receiver, password):
-    msg = MIMEMultipart()
-    msg['From'] = sender
-    msg['To'] = receiver
-    msg['Subject'] = subject
+EMAIL_SENDER = os.environ.get("EMAIL_SENDER")
+EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
+EMAIL_RECEIVER = os.environ.get("EMAIL_RECEIVER")
 
-    msg.attach(MIMEText(body, 'plain'))
+REPORT_PATH = "nikto_reports/nikto_report.html"
 
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender, password)
-        server.send_message(msg)
-        server.quit()
-        print("Email sent successfully")
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-        exit(1)
+msg = EmailMessage()
+msg["Subject"] = "Nikto Scan Report"
+msg["From"] = EMAIL_SENDER
+msg["To"] = EMAIL_RECEIVER
+msg.set_content("Attached is the Nikto scan report.")
 
-if __name__ == "__main__":
-    sender = os.environ.get('EMAIL_SENDER')
-    password = os.environ.get('EMAIL_PASSWORD')
-    receiver = os.environ.get('EMAIL_RECEIVER')
+with open(REPORT_PATH, "rb") as f:
+    file_data = f.read()
+    file_name = os.path.basename(REPORT_PATH)
+    msg.add_attachment(file_data, maintype="text", subtype="html", filename=file_name)
 
-    subject = "ZAP Scan Report"
-    body = "Attached is the ZAP scan report."
-
-    send_email(subject, body, sender, receiver, password)
+with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+    smtp.login(EMAIL_SENDER, EMAIL_PASSWORD)
+    smtp.send_message(msg)
