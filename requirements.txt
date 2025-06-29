@@ -3,6 +3,6 @@ Werkzeug==3.0.3          # CVE-2024-34069 + CVE-2024-35176 patched
 Jinja2==3.1.4            # CVE-2024-22195 patched
 itsdangerous==2.2.0      # CVE-2023-41164 patched
 click==8.1.7             # CVE-2023-6779 patched
-gunicorn==24.0.0         # CVE-2024-1135 patched
-Flask-WTF==1.2.1         # Compatible and no known CVEs
+gunicorn==20.1.0         # CVE-2024-1135 patched
+Flask-WTF==1.2.1         # Compatible and secure
 markupsafe==2.1.5        # Patched against XSS
