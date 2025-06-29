@@ -6,3 +6,4 @@ click==8.1.7             # CVE-2023-6779 patched
 gunicorn==20.1.0         # CVE-2024-1135 patched
 Flask-WTF==1.2.1         # Compatible and secure
 markupsafe==2.1.5        # Patched against XSS
+bleach==6.0.0            # لازم تضيفه
