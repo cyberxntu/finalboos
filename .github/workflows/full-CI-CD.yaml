@@ -161,7 +161,7 @@ jobs:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python script/send_email.py
+        run: python .github/workflows/scripts/send_email.py
 
   deploy-production:
     needs: nikto-scan
